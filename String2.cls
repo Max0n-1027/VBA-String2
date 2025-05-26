@@ -5,18 +5,14 @@ END
 Attribute VB_Name = "String2"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
+Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = True
 Option Explicit
 Private mStr As String
 
-Public Property Get length() As Long
-    length = Len(mStr)
-End Property
-
-Public Function NewInstance(Optional ByVal Val As String = "") As String2
+Public Function NewInstance(Optional ByVal val As String = "") As String2
     Set NewInstance = New String2
-    NewInstance.Value = Val
+    NewInstance.Value = val
 End Function
 
 Public Property Get Value() As String
@@ -25,8 +21,12 @@ Attribute Value.VB_UserMemId = 0
     Value = mStr
 End Property
 
-Public Property Let Value(ByVal Val As String)
-    mStr = Val
+Public Property Let Value(ByVal val As String)
+    mStr = val
+End Property
+
+Public Property Get Length() As Long
+    Length = Len(mStr)
 End Property
 
 Public Function CharAt(ByVal position As Long) As String2
@@ -41,14 +41,18 @@ Public Function CharCodeAt(ByVal Index As Long) As Long
     End If
 End Function
 
-Public Function Concat(ByVal Val As String) As String2
-    Set Concat = Me.NewInstance(mStr & Val)
+Public Function Concat(ParamArray args() As Variant) As String2
+    Dim res As String
+    Dim i As Long: For i = LBound(args) To UBound(args)
+        res = res & ParseVal(args(i))
+    Next
+    Set Concat = Me.NewInstance(res)
 End Function
 
-Function EndsWith(ByVal searchString As String, Optional ByVal length As Long = -1) As Boolean
+Function EndsWith(ByVal searchString As String, Optional ByVal Length As Long = -1) As Boolean
     Dim effectiveLength As Long
-    If length > 0 Then
-        effectiveLength = length
+    If Length > 0 Then
+        effectiveLength = Length
     Else
         effectiveLength = Len(mStr)
     End If
@@ -59,17 +63,17 @@ Function EndsWith(ByVal searchString As String, Optional ByVal length As Long = 
     End If
 
     Dim startPos As Long: startPos = effectiveLength - Len(searchString) + 1
-    Dim SubString As String: SubString = Mid$(mStr, startPos, Len(searchString))
+    Dim subString As String: subString = Mid$(mStr, startPos, Len(searchString))
 
-    EndsWith = (SubString = searchString)
+    EndsWith = (subString = searchString)
 End Function
 
-Public Function Includes(ByVal searchString As String, Optional ByVal start As Long = 0) As Boolean
-    Dim position As Long: position = InStr(start + 1, mStr, searchString, vbBinaryCompare)
+Public Function Includes(ByVal search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Boolean
+    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(search), compareMode)
     Includes = (position > 0)
 End Function
 
-Public Function IndexOf(ByVal searchString As String, Optional ByVal start As Long = 0) As Long
+Public Function IndexOf(ByVal search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Long
     Dim textLength As Long: textLength = Len(mStr)
 
     If start >= textLength Then
@@ -77,11 +81,9 @@ Public Function IndexOf(ByVal searchString As String, Optional ByVal start As Lo
         Exit Function
     End If
 
-    If start < 0 Then
-        start = 0
-    End If
+    If start < 0 Then start = 0
 
-    Dim position As Long: position = InStr(start + 1, mStr, searchString, vbBinaryCompare)
+    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(search), compareMode)
 
     If position > 0 Then
         IndexOf = position
@@ -90,23 +92,31 @@ Public Function IndexOf(ByVal searchString As String, Optional ByVal start As Lo
     End If
 End Function
 
-Public Function LastIndexOf(Search As String, Optional startPos As Long = -1) As Long
-    Dim i As Long
-    Dim maxPos As Long
+Public Function Join(ByVal separator As String, ParamArray args()) As String2
+    Dim res As String
+    Dim i As Long: For i = LBound(args) To UBound(args)
+        res = res & ParseVal(args(i))
+        If i < UBound(args) Then res = res & separator
+    Next
+    Set Join = Me.NewInstance(res)
+End Function
 
-    If Len(Search) = 0 Then
+Public Function LastIndexOf(ByVal search As Variant, Optional ByVal startPos As Long = -1) As Long
+    search = ParseVal(search)
+    If Len(search) = 0 Then
         LastIndexOf = -1
         Exit Function
     End If
 
+    Dim maxPos As Long
     If startPos < 0 Or startPos > Len(mStr) - 1 Then
-        maxPos = Len(mStr) - Len(Search)
+        maxPos = Len(mStr) - Len(search)
     Else
         maxPos = startPos
     End If
 
-    For i = maxPos To 0 Step -1
-        If Mid(mStr, i + 1, Len(Search)) = Search Then
+    Dim i As Long: For i = maxPos To 0 Step -1
+        If Mid(mStr, i + 1, Len(search)) = search Then
             LastIndexOf = i
             Exit Function
         End If
@@ -115,11 +125,11 @@ Public Function LastIndexOf(Search As String, Optional startPos As Long = -1) As
     LastIndexOf = -1
 End Function
 
-Function Match(ByVal pattern As String) As String()
+Function Match(ByVal pattern As String, Optional ByVal ignoreCase As Boolean = False) As String()
     Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
     regex.pattern = pattern
     regex.Global = True
-    regex.ignoreCase = False
+    regex.ignoreCase = ignoreCase
 
     Dim matches As Object: Set matches = regex.Execute(mStr)
     Dim result() As String
@@ -146,13 +156,11 @@ Public Function PadEnd(ByVal targetLength As Long, Optional ByVal padString As S
 
     Dim padLen As Long: padLen = targetLength - Len(mStr)
 
-    ' padString を必要な長さまで繰り返す
     Dim repeatedPad As String
     Do While Len(repeatedPad) < padLen
         repeatedPad = repeatedPad & padString
     Loop
 
-    ' 必要な長さだけ切り取って末尾に追加
     Dim result As String: result = mStr & Left$(repeatedPad, padLen)
     Set PadEnd = Me.NewInstance(result)
 End Function
@@ -163,21 +171,37 @@ Public Function PadStart(ByVal targetLength As Long, Optional ByVal padString As
         Exit Function
     End If
 
-    If Len(padString) = 0 Then
-        padString = " "
-    End If
+    If Len(padString) = 0 Then padString = " "
 
     Dim padLen As Long: padLen = targetLength - Len(mStr)
 
-    ' padString を必要な長さまで繰り返す
     Dim repeatedPad As String
     Do While Len(repeatedPad) < padLen
         repeatedPad = repeatedPad & padString
     Loop
 
-    ' 必要な長さだけ切り取って先頭に追加
     Dim result As String: result = Left$(repeatedPad, padLen) & mStr
     Set PadStart = Me.NewInstance(result)
+End Function
+
+Private Function ParseVal(ByVal inputVar As Variant) As String
+    On Error GoTo ErrorHandler
+
+    If IsNull(inputVar) Or IsEmpty(inputVar) Then
+        ParseVal = ""
+        Exit Function
+    End If
+
+    If VarType(inputVar) = vbObject Then
+        ParseVal = TypeName(inputVar)
+        Exit Function
+    End If
+
+    ParseVal = CStr(inputVar)
+    Exit Function
+
+ErrorHandler:
+    ParseVal = "[Error parsing Variant]"
 End Function
 
 Public Function Repeat(ByVal Count As Long) As String2
@@ -194,12 +218,12 @@ Public Function Repeat(ByVal Count As Long) As String2
     Set Repeat = Me.NewInstance(result)
 End Function
 
-Public Function Replace(ByVal pattern As String, ByVal replacement As String, Optional ByVal useRegex As Boolean = False) As String2
+Public Function Replace(ByVal pattern As String, ByVal replacement As String, Optional ByVal useRegex As Boolean = False, Optional ByVal ignoreCase As Boolean = True) As String2
     If useRegex Then
         Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
         regex.pattern = pattern
-        regex.Global = False  ' 最初の一致のみを置換
-        regex.ignoreCase = True
+        regex.Global = False
+        regex.ignoreCase = ignoreCase
         Set Replace = Me.NewInstance(regex.Replace(mStr, replacement))
     Else
         Dim pos As Long: pos = InStr(1, mStr, pattern, vbBinaryCompare)
@@ -211,15 +235,19 @@ Public Function Replace(ByVal pattern As String, ByVal replacement As String, Op
     End If
 End Function
 
-Public Function ReplaceAll(ByVal pattern As String, ByVal replacement As String, Optional useRegex As Boolean = False) As String2
+Public Function ReplaceAll(ByVal pattern As String, ByVal replacement As String, Optional useRegex As Boolean = False, Optional ByVal ignoreCase As Boolean = True) As String2
     If useRegex Then
         Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
         regex.pattern = pattern
         regex.Global = True
-        regex.ignoreCase = True
+        regex.ignoreCase = ignoreCase
         Set ReplaceAll = Me.NewInstance(regex.Replace(mStr, replacement))
     Else
-        Set ReplaceAll = Me.NewInstance(VBA.Replace(mStr, pattern, replacement, 1, -1, vbBinaryCompare))
+        If ignoreCase Then
+            Set ReplaceAll = Me.NewInstance(VBA.Replace(mStr, pattern, replacement, 1, -1, vbBinaryCompare))
+        Else
+            Set ReplaceAll = Me.NewInstance(VBA.Replace(mStr, pattern, replacement, 1, -1, vbTextCompare))
+        End If
     End If
 End Function
 
@@ -227,17 +255,17 @@ Public Function Reverse() As String2
     Set Reverse = Me.NewInstance(VBA.StrReverse(mStr))
 End Function
 
-Public Function Search(ByVal pattern As String) As Long
+Public Function search(ByVal pattern As String, Optional ignoreCase As Boolean = True) As Long
     Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
     regex.pattern = pattern
     regex.Global = False
-    regex.ignoreCase = True
+    regex.ignoreCase = ignoreCase
     regex.MultiLine = False
     
     If regex.Test(mStr) Then
-        Search = regex.Execute(mStr)(0).FirstIndex
+        search = regex.Execute(mStr)(0).FirstIndex
     Else
-        Search = -1
+        search = -1
     End If
 End Function
 
@@ -246,22 +274,21 @@ Public Function Slice(Optional ByVal indexStart As Long = 0, Optional ByVal inde
     Dim endPos As Long
     
     If indexStart < 0 Then
-        startPos = Me.length + CLng(indexStart)
+        startPos = Me.Length + CLng(indexStart)
     Else
         startPos = CLng(indexStart)
     End If
 
     If indexEnd <= 0 Then
-        endPos = Me.length + CLng(indexEnd)
+        endPos = Me.Length + CLng(indexEnd)
     Else
         endPos = CLng(indexEnd)
     End If
 
-    ' 範囲の調整
     If startPos < 0 Then startPos = 0
     If endPos < 0 Then endPos = 0
-    If startPos > Me.length Then startPos = Me.length
-    If endPos > Me.length Then endPos = Me.length
+    If startPos > Me.Length Then startPos = Me.Length
+    If endPos > Me.Length Then endPos = Me.Length
 
     If endPos <= startPos Then
         Set Slice = Me.NewInstance("")
@@ -272,7 +299,7 @@ End Function
 
 Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As Long = -1) As String()
     Dim result() As String
-    ' limit の処理
+
     Dim useLimit As Boolean: useLimit = False
     Dim maxParts As Long
     If limit >= 0 Then
@@ -285,7 +312,6 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
         End If
     End If
 
-    ' separator が省略された場合
     If separator = "#Empty#" Then
         ReDim result(0)
         result(0) = mStr
@@ -293,18 +319,17 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
         Exit Function
     End If
 
-    ' separator が空文字列の場合、1 文字ずつ分割
     If separator = "" Then
         Dim i As Long
-        If useLimit And maxParts < Me.length Then
+        If useLimit And maxParts < Me.Length Then
             ReDim result(0 To maxParts - 1)
             For i = 1 To maxParts - 1
                 result(i - 1) = Mid$(mStr, i, 1)
             Next i
             result(maxParts - 1) = Mid$(mStr, maxParts)
         Else
-            ReDim result(0 To Me.length - 1)
-            For i = 1 To Me.length
+            ReDim result(0 To Me.Length - 1)
+            For i = 1 To Me.Length
                 result(i - 1) = Mid$(mStr, i, 1)
             Next i
         End If
@@ -312,7 +337,6 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
         Exit Function
     End If
 
-    ' 通常の区切り文字で分割
     Dim sepLength As Long: sepLength = Len(separator)
     Dim startPos As Long: startPos = 1
     Dim Index As Long: Index = 0
@@ -336,45 +360,50 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
     Split = result
 End Function
 
-Public Function StartsWith(ByVal prefix As String, Optional position As Long = 0) As Boolean
+Public Function StartsWith(ByVal prefix As Variant, Optional position As Long = 0) As Boolean
+    prefix = ParseVal(prefix)
     Dim prefixLength As Long: prefixLength = Len(prefix)
 
-    ' position が負の場合は false を返す
     If position < 0 Then
         StartsWith = False
         Exit Function
     End If
 
-    ' position が text の長さ以上の場合は false を返す
-    If position >= Me.length Then
+    If position >= Me.Length Then
         StartsWith = False
         Exit Function
     End If
 
-    ' 残りの文字数が prefix より短い場合は false を返す
-    If (Me.length - position) < prefixLength Then
+    If (Me.Length - position) < prefixLength Then
         StartsWith = False
         Exit Function
     End If
 
-    ' 指定された位置から prefix の長さ分の文字列を取得して比較
     StartsWith = (Mid$(mStr, position + 1, prefixLength) = prefix)
 End Function
 
-Public Function SubString(ByVal starts As Long, Optional ByVal ends As Long = -1) As String2
+Public Function subString(ByVal starts As Long, Optional ByVal ends As Long = -1) As String2
     If ends = -1 Then
-        Set SubString = Me.NewInstance(Mid$(mStr, starts + 1))
+        Set subString = Me.NewInstance(Mid$(mStr, starts + 1))
     Else
-        Set SubString = Me.NewInstance(Mid$(mStr, starts + 1, ends - starts))
+        Set subString = Me.NewInstance(Mid$(mStr, starts + 1, ends - starts))
     End If
 End Function
 
 Public Function ToCharArray() As String()
-    Dim arr() As String: ReDim arr(Me.length - 1)
-    Dim i As Long: For i = 0 To Me.length - 1
+    Dim arr() As String: ReDim arr(Me.Length - 1)
+    Dim i As Long: For i = 0 To Me.Length - 1
         arr(i) = Mid(mStr, i + 1, 1)
     Next
     ToCharArray = arr
+End Function
+
+Public Function ToCharCodeArray() As Long()
+    Dim arr() As Long: ReDim arr(Me.Length - 1)
+    Dim i As Long: For i = 0 To Me.Length - 1
+        arr(i) = AscW(Mid$(mStr, i + 1, 1))
+    Next
+    ToCharCodeArray = arr
 End Function
 
 Public Function ToLowerCase() As String2
@@ -394,8 +423,7 @@ Public Function Trim() As String2
 End Function
 
 Public Function TrimEnd() As String2
-    Dim i As Long
-    i = Len(mStr)
+    Dim i As Long: i = Len(mStr)
     Do While i >= 1 And Mid(mStr, i, 1) = " "
         i = i - 1
     Loop
