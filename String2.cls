@@ -68,12 +68,80 @@ Function EndsWith(ByVal searchString As String, Optional ByVal Length As Long = 
     EndsWith = (subString = searchString)
 End Function
 
-Public Function Includes(ByVal search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Boolean
-    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(search), compareMode)
+Public Function Format(ParamArray args() As Variant) As String2
+    ' エスケープ対応
+    mStr = VBA.Replace(mStr, "{{", "≪OPEN≫")
+    mStr = VBA.Replace(mStr, "}}", "≪CLOSE≫")
+    
+    ' 正規表現拡張: {index[,alignment][:format]}
+    Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
+    With regex
+        .Global = True
+        .ignoreCase = False
+        .pattern = "\{(\d+)(?:,(-?\d+))?(?:\:([^}]+))?\}"
+    End With
+    
+    Dim matches As Object: Set matches = regex.Execute(mStr)
+        
+    Dim i As Long: For i = matches.Count - 1 To 0 Step -1
+        Dim m As Object: Set m = matches(i)
+        Dim idx As Long: idx = CLng(m.SubMatches(0))
+        Dim align As Long: align = 0
+        If m.SubMatches(1) <> "" Then align = CLng(m.SubMatches(1))
+        Dim fmtSpec As String: fmtSpec = m.SubMatches(2)
+        
+        Dim raw As String
+        If idx <= UBound(args) Then
+            raw = ParseVal(args(idx))
+        Else
+            raw = ""
+        End If
+        
+        ' 書式適用
+        Dim formatted As String
+        If fmtSpec <> "" Then
+            On Error Resume Next
+            formatted = VBA.Format(raw, fmtSpec)
+            If Err.Number <> 0 Then
+                Err.Clear
+                formatted = raw
+            End If
+            On Error GoTo 0
+        Else
+            formatted = raw
+        End If
+        
+        ' パディング（配置）処理
+        Dim padWidth As Long: padWidth = Abs(align)
+        If padWidth > 0 Then
+            If Len(formatted) < padWidth Then
+                If align < 0 Then
+                    ' 左寄せ
+                    formatted = formatted & Space$(padWidth - Len(formatted))
+                Else
+                    ' 右寄せ
+                    formatted = Space$(padWidth - Len(formatted)) & formatted
+                End If
+            End If
+        End If
+        
+        ' 置換
+        mStr = Left$(mStr, m.FirstIndex) & formatted & Mid$(mStr, m.FirstIndex + m.Length + 1)
+    Next i
+    
+    ' エスケープ復元
+    mStr = VBA.Replace(mStr, "≪OPEN≫", "{")
+    mStr = VBA.Replace(mStr, "≪CLOSE≫", "}")
+    
+    Set Format = Me.NewInstance(mStr)
+End Function
+
+Public Function Includes(ByVal Search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Boolean
+    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(Search), compareMode)
     Includes = (position > 0)
 End Function
 
-Public Function IndexOf(ByVal search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Long
+Public Function IndexOf(ByVal Search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Long
     Dim textLength As Long: textLength = Len(mStr)
 
     If start >= textLength Then
@@ -83,7 +151,7 @@ Public Function IndexOf(ByVal search As String, Optional ByVal start As Long = 0
 
     If start < 0 Then start = 0
 
-    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(search), compareMode)
+    Dim position As Long: position = InStr(start + 1, mStr, ParseVal(Search), compareMode)
 
     If position > 0 Then
         IndexOf = position
@@ -101,22 +169,22 @@ Public Function Join(ByVal separator As String, ParamArray args()) As String2
     Set Join = Me.NewInstance(res)
 End Function
 
-Public Function LastIndexOf(ByVal search As Variant, Optional ByVal startPos As Long = -1) As Long
-    search = ParseVal(search)
-    If Len(search) = 0 Then
+Public Function LastIndexOf(ByVal Search As Variant, Optional ByVal startPos As Long = -1) As Long
+    Search = ParseVal(Search)
+    If Len(Search) = 0 Then
         LastIndexOf = -1
         Exit Function
     End If
 
     Dim maxPos As Long
     If startPos < 0 Or startPos > Len(mStr) - 1 Then
-        maxPos = Len(mStr) - Len(search)
+        maxPos = Len(mStr) - Len(Search)
     Else
         maxPos = startPos
     End If
 
     Dim i As Long: For i = maxPos To 0 Step -1
-        If Mid(mStr, i + 1, Len(search)) = search Then
+        If Mid(mStr, i + 1, Len(Search)) = Search Then
             LastIndexOf = i
             Exit Function
         End If
@@ -255,7 +323,7 @@ Public Function Reverse() As String2
     Set Reverse = Me.NewInstance(VBA.StrReverse(mStr))
 End Function
 
-Public Function search(ByVal pattern As String, Optional ignoreCase As Boolean = True) As Long
+Public Function Search(ByVal pattern As String, Optional ignoreCase As Boolean = True) As Long
     Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
     regex.pattern = pattern
     regex.Global = False
@@ -263,9 +331,9 @@ Public Function search(ByVal pattern As String, Optional ignoreCase As Boolean =
     regex.MultiLine = False
     
     If regex.Test(mStr) Then
-        search = regex.Execute(mStr)(0).FirstIndex
+        Search = regex.Execute(mStr)(0).FirstIndex
     Else
-        search = -1
+        Search = -1
     End If
 End Function
 
@@ -407,7 +475,7 @@ Public Function ToCharCodeArray() As Long()
 End Function
 
 Public Function ToLowerCase() As String2
-    Set ToLowerCase = Me.NewInstance(LCase(mStr))
+    Set ToLowerCase = Me.NewInstance(VBA.LCase$(mStr))
 End Function
 
 Public Function ToString() As String
@@ -415,7 +483,7 @@ Public Function ToString() As String
 End Function
 
 Public Function ToUpperCase() As String2
-    Set ToUpperCase = Me.NewInstance(UCase(mStr))
+    Set ToUpperCase = Me.NewInstance(VBA.UCase$(mStr))
 End Function
 
 Public Function Trim() As String2
@@ -423,19 +491,9 @@ Public Function Trim() As String2
 End Function
 
 Public Function TrimEnd() As String2
-    Dim i As Long: i = Len(mStr)
-    Do While i >= 1 And Mid(mStr, i, 1) = " "
-        i = i - 1
-    Loop
-    mStr = Left(mStr, i)
-    Set TrimEnd = Me.NewInstance(mStr)
+    Set TrimEnd = Me.NewInstance(VBA.RTrim$(mStr))
 End Function
 
 Public Function TrimStart() As String2
-    Dim i As Long: i = 1
-    Do While i <= Len(mStr) And Mid(mStr, i, 1) = " "
-        i = i + 1
-    Loop
-    mStr = Mid(mStr, i)
-    Set TrimStart = Me.NewInstance(mStr)
+    Set TrimStart = Me.NewInstance(VBA.LTrim$(mStr))
 End Function
