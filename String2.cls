@@ -42,7 +42,7 @@ Public Function CharCodeAt(ByVal Index As Long) As Long
 End Function
 
 Public Function Concat(ParamArray args() As Variant) As String2
-    Dim res As String
+    Dim res As String: res = mStr
     Dim i As Long: For i = LBound(args) To UBound(args)
         res = res & ParseVal(args(i))
     Next
@@ -69,9 +69,10 @@ Function EndsWith(ByVal searchString As String, Optional ByVal Length As Long = 
 End Function
 
 Public Function Format(ParamArray args() As Variant) As String2
+    Dim res As String: res = mStr
     ' エスケープ対応
-    mStr = VBA.Replace(mStr, "{{", "≪OPEN≫")
-    mStr = VBA.Replace(mStr, "}}", "≪CLOSE≫")
+    res = VBA.Replace(res, "{{", "≪OPEN≫")
+    res = VBA.Replace(res, "}}", "≪CLOSE≫")
     
     ' 正規表現拡張: {index[,alignment][:format]}
     Dim regex As Object: Set regex = CreateObject("VBScript.RegExp")
@@ -81,7 +82,7 @@ Public Function Format(ParamArray args() As Variant) As String2
         .pattern = "\{(\d+)(?:,(-?\d+))?(?:\:([^}]+))?\}"
     End With
     
-    Dim matches As Object: Set matches = regex.Execute(mStr)
+    Dim matches As Object: Set matches = regex.Execute(res)
         
     Dim i As Long: For i = matches.Count - 1 To 0 Step -1
         Dim m As Object: Set m = matches(i)
@@ -126,14 +127,14 @@ Public Function Format(ParamArray args() As Variant) As String2
         End If
         
         ' 置換
-        mStr = Left$(mStr, m.FirstIndex) & formatted & Mid$(mStr, m.FirstIndex + m.Length + 1)
+        res = Left$(res, m.FirstIndex) & formatted & Mid$(res, m.FirstIndex + m.Length + 1)
     Next i
     
     ' エスケープ復元
-    mStr = VBA.Replace(mStr, "≪OPEN≫", "{")
-    mStr = VBA.Replace(mStr, "≪CLOSE≫", "}")
+    res = VBA.Replace(res, "≪OPEN≫", "{")
+    res = VBA.Replace(res, "≪CLOSE≫", "}")
     
-    Set Format = Me.NewInstance(mStr)
+    Set Format = Me.NewInstance(res)
 End Function
 
 Public Function Includes(ByVal Search As String, Optional ByVal start As Long = 0, Optional ByVal compareMode As VbCompareMethod) As Boolean
@@ -161,7 +162,8 @@ Public Function IndexOf(ByVal Search As String, Optional ByVal start As Long = 0
 End Function
 
 Public Function Join(ByVal separator As String, ParamArray args()) As String2
-    Dim res As String
+    Dim res As String: res = mStr
+    If (Len(res) > 0) Then res = res & separator
     Dim i As Long: For i = LBound(args) To UBound(args)
         res = res & ParseVal(args(i))
         If i < UBound(args) Then res = res & separator
@@ -200,15 +202,15 @@ Function Match(ByVal pattern As String, Optional ByVal ignoreCase As Boolean = F
     regex.ignoreCase = ignoreCase
 
     Dim matches As Object: Set matches = regex.Execute(mStr)
-    Dim result() As String
+    Dim res() As String
     If matches.Count = 0 Then
         Match = Null
     Else
-        ReDim result(matches.Count - 1)
+        ReDim res(matches.Count - 1)
         Dim i As Long: For i = 0 To matches.Count - 1
-            result(i) = matches.Item(i).Value
+            res(i) = matches.Item(i).Value
         Next i
-        Match = result
+        Match = res
     End If
 End Function
 
@@ -229,8 +231,8 @@ Public Function PadEnd(ByVal targetLength As Long, Optional ByVal padString As S
         repeatedPad = repeatedPad & padString
     Loop
 
-    Dim result As String: result = mStr & Left$(repeatedPad, padLen)
-    Set PadEnd = Me.NewInstance(result)
+    Dim res As String: res = mStr & Left$(repeatedPad, padLen)
+    Set PadEnd = Me.NewInstance(res)
 End Function
 
 Public Function PadStart(ByVal targetLength As Long, Optional ByVal padString As String = " ") As String2
@@ -248,8 +250,8 @@ Public Function PadStart(ByVal targetLength As Long, Optional ByVal padString As
         repeatedPad = repeatedPad & padString
     Loop
 
-    Dim result As String: result = Left$(repeatedPad, padLen) & mStr
-    Set PadStart = Me.NewInstance(result)
+    Dim res As String: res = Left$(repeatedPad, padLen) & mStr
+    Set PadStart = Me.NewInstance(res)
 End Function
 
 Private Function ParseVal(ByVal inputVar As Variant) As String
@@ -273,17 +275,17 @@ ErrorHandler:
 End Function
 
 Public Function Repeat(ByVal Count As Long) As String2
-    Dim result As String: result = ""
     
     If Count < 0 Then
         Err.Raise vbObjectError + 513, "repeat", "Repeat count must be non-negative"
     End If
     
+    Dim res As String
     Dim i As Long: For i = 1 To Count
-        result = result & mStr
+        res = res & mStr
     Next i
     
-    Set Repeat = Me.NewInstance(result)
+    Set Repeat = Me.NewInstance(res)
 End Function
 
 Public Function Replace(ByVal pattern As String, ByVal replacement As String, Optional ByVal useRegex As Boolean = False, Optional ByVal ignoreCase As Boolean = True) As String2
@@ -366,7 +368,7 @@ Public Function Slice(Optional ByVal indexStart As Long = 0, Optional ByVal inde
 End Function
 
 Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As Long = -1) As String()
-    Dim result() As String
+    Dim res() As String
 
     Dim useLimit As Boolean: useLimit = False
     Dim maxParts As Long
@@ -381,27 +383,27 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
     End If
 
     If separator = "#Empty#" Then
-        ReDim result(0)
-        result(0) = mStr
-        Split = result
+        ReDim res(0)
+        res(0) = mStr
+        Split = res
         Exit Function
     End If
 
     If separator = "" Then
         Dim i As Long
         If useLimit And maxParts < Me.Length Then
-            ReDim result(0 To maxParts - 1)
+            ReDim res(0 To maxParts - 1)
             For i = 1 To maxParts - 1
-                result(i - 1) = Mid$(mStr, i, 1)
+                res(i - 1) = Mid$(mStr, i, 1)
             Next i
-            result(maxParts - 1) = Mid$(mStr, maxParts)
+            res(maxParts - 1) = Mid$(mStr, maxParts)
         Else
-            ReDim result(0 To Me.Length - 1)
+            ReDim res(0 To Me.Length - 1)
             For i = 1 To Me.Length
-                result(i - 1) = Mid$(mStr, i, 1)
+                res(i - 1) = Mid$(mStr, i, 1)
             Next i
         End If
-        Split = result
+        Split = res
         Exit Function
     End If
 
@@ -413,8 +415,8 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
         If useLimit And Index >= maxParts - 1 Then Exit Do
         Dim pos As Long: pos = InStr(startPos, mStr, separator)
         If pos > 0 Then
-            ReDim Preserve result(Index)
-            result(Index) = Mid$(mStr, startPos, pos - startPos)
+            ReDim Preserve res(Index)
+            res(Index) = Mid$(mStr, startPos, pos - startPos)
             startPos = pos + sepLength
             Index = Index + 1
         Else
@@ -422,10 +424,10 @@ Function Split(Optional ByVal separator As String = "#Empty#", Optional limit As
         End If
     Loop
 
-    ReDim Preserve result(Index)
-    result(Index) = Mid$(mStr, startPos)
+    ReDim Preserve res(Index)
+    res(Index) = Mid$(mStr, startPos)
 
-    Split = result
+    Split = res
 End Function
 
 Public Function StartsWith(ByVal prefix As Variant, Optional position As Long = 0) As Boolean
