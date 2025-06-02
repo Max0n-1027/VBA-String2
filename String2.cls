@@ -49,6 +49,10 @@ Public Function Concat(ParamArray args() As Variant) As String2
     Set Concat = Me.NewInstance(res)
 End Function
 
+Public Function CompareTo(ByVal Target As String, Optional compareMode As VbCompareMethod = VbCompareMethod.vbBinaryCompare) As Long
+    CompareTo = VBA.StrComp(mStr, Target, compareMode)
+End Function
+
 Function EndsWith(ByVal searchString As String, Optional ByVal Length As Long = -1) As Boolean
     Dim effectiveLength As Long
     If Length > 0 Then
